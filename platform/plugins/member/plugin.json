@@ -4,6 +4,6 @@
   "provider": "Botble\\Member\\Providers\\MemberServiceProvider",
   "author": "Botble Technologies",
   "url": "https://botble.com",
-  "version": "5.7",
+  "version": "5.8",
   "description": "Manage member, user register/login"
 }

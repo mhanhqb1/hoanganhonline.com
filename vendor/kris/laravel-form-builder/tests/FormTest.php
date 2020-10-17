@@ -468,7 +468,7 @@ class FormTest extends FormBuilderTestCase
         $this->plainForm->only('remember', 'name');
 
         $this->assertEquals(2, count($this->plainForm->getFields()));
-        
+
         $this->assertTrue($this->plainForm->has('remember'));
         $this->assertTrue($this->plainForm->has('name'));
         $this->assertFalse($this->plainForm->has('description'));
@@ -716,11 +716,12 @@ class FormTest extends FormBuilderTestCase
     /** @test */
     public function it_can_add_child_form_as_field()
     {
-        $form = $this->formBuilder->plain();
+        $model = ['song' => ['body' => 'test body'], 'title' => 'main title'];
+        $form = $this->formBuilder->plain([
+            'model' => $model,
+        ]);
         $customForm = $this->formBuilder->create('CustomDummyForm');
         $customForm->add('img', 'file')->add('name', 'text', ['label_show' => false]);
-        $model = ['song' => ['body' => 'test body'], 'title' => 'main title'];
-        $form->setModel($model);
 
         $form
             ->add('title', 'text', [
@@ -780,6 +781,40 @@ class FormTest extends FormBuilderTestCase
     }
 
     /** @test */
+    public function it_can_use_model_property_to_set_value()
+    {
+        $form = $this->formBuilder->plain([
+            'model' => $this->model,
+        ]);
+
+        $form->add('alias_accessor', 'choice', [
+            'value_property' => 'accessor',
+        ]);
+
+        $this->assertEquals($form->alias_accessor->getValue(), $this->model->accessor);
+    }
+
+    /** @test */
+    public function it_sets_entity_field_value_to_the_entity_model_value()
+    {
+        $dummyModel = new DummyModel();
+        $dummyModel->id = 1;
+
+        $this->model->dummy_model_id = $dummyModel->id;
+
+        $form = $this->formBuilder
+            ->plain([
+                'model' => $this->model,
+            ])
+            ->add('dummy_model_id', 'entity', [
+                'class' => DummyModel::class,
+                'property' => 'name',
+            ]);
+
+        $this->assertEquals($form->dummy_model_id->getValue(), $this->model->dummy_model_id);
+    }
+
+    /** @test */
     public function it_reads_configuration_properly()
     {
         $config = $this->config;
@@ -820,10 +855,11 @@ class FormTest extends FormBuilderTestCase
     /** @test */
     public function it_removes_children_from_parent_type_fields()
     {
-        $form = $this->formBuilder->plain();
-        $customForm = $this->formBuilder->create('CustomDummyForm');
         $model = ['song' => ['title' => 'test song title', 'body' => 'test body'], 'title' => 'main title'];
-        $form->setModel($model);
+        $form = $this->formBuilder->plain([
+            'model' => $model,
+        ]);
+        $customForm = $this->formBuilder->create('CustomDummyForm');
 
         $form
             ->add('title', 'text')

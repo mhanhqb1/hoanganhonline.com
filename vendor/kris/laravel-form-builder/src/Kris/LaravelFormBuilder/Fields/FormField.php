@@ -142,7 +142,13 @@ abstract class FormField
         }
 
         if (($value === null || $value instanceof \Closure) && !$isChild) {
-            $this->setValue($this->getModelValueAttribute($this->parent->getModel(), $this->name));
+            if ($this instanceof EntityType) {
+                $attributeName = $this->name;
+            } else {
+                $attributeName = $this->getOption('value_property', $this->name);
+            }
+
+            $this->setValue($this->getModelValueAttribute($this->parent->getModel(), $attributeName));
         } elseif (!$isChild) {
             $this->hasDefault = true;
         }
@@ -373,12 +379,7 @@ abstract class FormField
         }
 
         if (is_array($rules)) {
-            $normalizedRules = [];
-            foreach ($rules as $rule) {
-                $normalizedRules[] = $this->normalizeRules($rule);
-            }
-
-            return array_values(array_unique(Arr::flatten($normalizedRules), SORT_REGULAR));
+            return array_values(array_unique(Arr::flatten($rules), SORT_REGULAR));
         }
 
         return $rules;

@@ -6,9 +6,7 @@ use Assets;
 use Botble\Base\Enums\BaseStatusEnum;
 use Botble\Blog\Models\Category;
 use Botble\Blog\Models\Tag;
-use Botble\Blog\Repositories\Interfaces\CategoryInterface;
 use Botble\Blog\Repositories\Interfaces\PostInterface;
-use Botble\Blog\Repositories\Interfaces\TagInterface;
 use Botble\Blog\Services\BlogService;
 use Botble\Dashboard\Supports\DashboardWidgetInstance;
 use Botble\Page\Models\Page;
@@ -122,27 +120,11 @@ class HookServiceProvider extends ServiceProvider
     public function registerMenuOptions()
     {
         if (Auth::user()->hasPermission('categories.index')) {
-            $categories = Menu::generateSelect([
-                'model'   => $this->app->make(CategoryInterface::class)->getModel(),
-                'type'    => Category::class,
-                'theme'   => false,
-                'options' => [
-                    'class' => 'list-item',
-                ],
-            ]);
-            echo view('plugins/blog::categories.menu-options', compact('categories'));
+            Menu::registerMenuOptions(Category::class, trans('plugins/blog::categories.menu'));
         }
 
         if (Auth::user()->hasPermission('tags.index')) {
-            $tags = Menu::generateSelect([
-                'model'   => $this->app->make(TagInterface::class)->getModel(),
-                'type'    => Tag::class,
-                'theme'   => false,
-                'options' => [
-                    'class' => 'list-item',
-                ],
-            ]);
-            echo view('plugins/blog::tags.partials.menu-options', compact('tags'));
+            Menu::registerMenuOptions(Tag::class, trans('plugins/blog::tags.menu'));
         }
     }
 

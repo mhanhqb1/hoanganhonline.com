@@ -3,6 +3,30 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project aims to adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.9.0 (Thursday, 1 October, 2020)
+### Changes
+- Start database transaction much earlier and close it much later for ApiResource and Transformer strategies. Also set current route properly when resolving (https://github.com/knuckleswtf/scribe/pull/104)
+
+## 1.8.3 (Thursday, 17 September, 2020)
+### Fixes
+- Reverts 1.8.2 as it broke a few things (https://github.com/knuckleswtf/scribe/commit/5a2217513945bcb92ca26e463f7717c0efb99ac1)
+
+## 1.8.2 (Thursday, 17 September, 2020)
+### Fixes
+- Regex in URL parameters shouldn't fuck the generated examples up anymore (https://github.com/knuckleswtf/scribe/commit/cf44fbbcd3643086859ba724f6e4d4315941b471)
+
+## 1.8.1 (Thursday, 17 September, 2020)
+### Fixes
+- Printing form data body parameters no longer throws an error with nested arrays or objects (https://github.com/knuckleswtf/scribe/commit/33a58a18a8712d20ab90c06bf0bb087f6fb5869a)
+
+## 1.8.0 (Tuesday, 15 September, 2020)
+- Lumen 8 support
+- Fixed Laravel 8 + legacy factories support
+- Fixed the OpenAPI route for `laravel` type docs (https://github.com/knuckleswtf/scribe/pull/96)
+
+## 1.7.0 (Saturday, 12 September, 2020)
+Laravel 8 support
+
 ## 1.6.0 (Tuesday, 8 September, 2020)
 ### Additions
 - New `description` field, where you can add a description of your API. This field will be used as the `info.description` field in the Postman collection and OpenAPI spec, and as the first paragraph under the "Introduction" section on the generated webpage, before the `intro_text`. (https://github.com/knuckleswtf/scribe/pull/90/commits/dc356f3f2b13732d567dbee88dad07fc0441f40e)

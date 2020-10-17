@@ -3,6 +3,7 @@
 namespace Botble\Contact\Tables;
 
 use BaseHelper;
+use Botble\Contact\Exports\ContactExport;
 use Botble\Contact\Models\Contact;
 use Html;
 use Illuminate\Support\Facades\Auth;
@@ -25,6 +26,11 @@ class ContactTable extends TableAbstract
      * @var bool
      */
     protected $hasFilter = true;
+
+    /**
+     * @var string
+     */
+    protected $exportClass = ContactExport::class;
 
     /**
      * ContactTable constructor.

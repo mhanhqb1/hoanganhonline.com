@@ -52,7 +52,7 @@ class SettingController extends BaseController
     {
         page_title()->setTitle(trans('core/setting::setting.title'));
 
-        Assets::addScriptsDirectly('vendor/core/js/setting.js');
+        Assets::addScriptsDirectly('vendor/core/core/setting/js/setting.js');
 
         return view('core/setting::index');
     }
@@ -89,7 +89,7 @@ class SettingController extends BaseController
     public function getEmailConfig()
     {
         page_title()->setTitle(trans('core/base::layouts.setting_email'));
-        Assets::addScriptsDirectly('vendor/core/js/setting.js');
+        Assets::addScriptsDirectly('vendor/core/core/setting/js/setting.js');
 
         return view('core/setting::email');
     }
@@ -123,17 +123,17 @@ class SettingController extends BaseController
         page_title()->setTitle($title);
 
         Assets::addStylesDirectly([
-            'vendor/core/libraries/codemirror/lib/codemirror.css',
-            'vendor/core/libraries/codemirror/addon/hint/show-hint.css',
-            'vendor/core/css/setting.css',
+            'vendor/core/core/base/libraries/codemirror/lib/codemirror.css',
+            'vendor/core/core/base/libraries/codemirror/addon/hint/show-hint.css',
+            'vendor/core/core/setting/css/setting.css',
         ])
             ->addScriptsDirectly([
-                'vendor/core/libraries/codemirror/lib/codemirror.js',
-                'vendor/core/libraries/codemirror/lib/css.js',
-                'vendor/core/libraries/codemirror/addon/hint/show-hint.js',
-                'vendor/core/libraries/codemirror/addon/hint/anyword-hint.js',
-                'vendor/core/libraries/codemirror/addon/hint/css-hint.js',
-                'vendor/core/js/setting.js',
+                'vendor/core/core/base/libraries/codemirror/lib/codemirror.js',
+                'vendor/core/core/base/libraries/codemirror/lib/css.js',
+                'vendor/core/core/base/libraries/codemirror/addon/hint/show-hint.js',
+                'vendor/core/core/base/libraries/codemirror/addon/hint/anyword-hint.js',
+                'vendor/core/core/base/libraries/codemirror/addon/hint/css-hint.js',
+                'vendor/core/core/setting/js/setting.js',
             ]);
 
 
@@ -225,7 +225,7 @@ class SettingController extends BaseController
     {
         page_title()->setTitle(trans('core/setting::setting.media.title'));
 
-        Assets::addScriptsDirectly('vendor/core/js/setting.js');
+        Assets::addScriptsDirectly('vendor/core/core/setting/js/setting.js');
 
         return view('core/setting::media');
     }
@@ -252,16 +252,21 @@ class SettingController extends BaseController
     public function getVerifyLicense(Core $coreApi, BaseHttpResponse $response)
     {
         if (!File::exists(storage_path('.license'))) {
-            return $response->setError()->setMessage('Your license is invalid, please contact support.');
+            return $response->setError()->setMessage('Your license is invalid. Please activate your license!');
         }
 
-        $result = $coreApi->verifyLicense(true);
+        try {
+            $result = $coreApi->verifyLicense(true);
 
-        if (!$result['status']) {
-            return $response->setError()->setMessage($result['message']);
+            if (!$result['status']) {
+                return $response->setError()->setMessage($result['message']);
+            }
+
+            $activatedAt = Carbon::createFromTimestamp(filectime($coreApi->getLicenseFilePath()));
+        } catch (Exception $exception) {
+            $activatedAt = now();
+            $result = ['message' => $exception->getMessage()];
         }
-
-        $activatedAt = Carbon::createFromTimestamp(filectime($coreApi->getLicenseFilePath()));
 
         $data = [
             'activated_at' => $activatedAt->format('M d Y'),

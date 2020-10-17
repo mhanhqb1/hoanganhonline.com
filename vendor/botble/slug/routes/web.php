@@ -23,6 +23,7 @@ Route::group(['namespace' => 'Botble\Slug\Http\Controllers', 'middleware' => 'we
                     'as'         => 'slug.settings',
                     'uses'       => 'SlugController@postSettings',
                     'permission' => 'settings.options',
+                    'middleware' => 'preventDemo',
                 ]);
             });
         });

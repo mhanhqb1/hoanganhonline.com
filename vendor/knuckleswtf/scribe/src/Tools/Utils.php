@@ -58,18 +58,14 @@ class Utils
      */
     public static function replaceUrlParameterPlaceholdersWithValues(string $uri, array $urlParameters)
     {
-        $matches = preg_match_all('/{.+?}/i', $uri, $parameterPaths);
-        if (!$matches) {
+        if (empty($urlParameters)) {
             return $uri;
         }
 
-        foreach ($parameterPaths[0] as $parameterPath) {
-            $key = trim($parameterPath, '{?}');
-            if (isset($urlParameters[$key])) {
-                $example = $urlParameters[$key];
-                $uri = str_replace($parameterPath, $example, $uri);
-            }
+        foreach ($urlParameters as $parameterName => $example) {
+            $uri = preg_replace('#\{' . $parameterName . '\??}#', $example, $uri);
         }
+
         // Remove unbound optional parameters with nothing
         $uri = preg_replace('#{([^/]+\?)}#', '', $uri);
         // Replace any unbound non-optional parameters with '1'
@@ -118,7 +114,7 @@ class Utils
 
     public static function getModelFactory(string $modelName, array $states = [])
     {
-        if (version_compare(app()->version(), '8.0.0', '>=')) {
+        if (!function_exists('factory')) { // Laravel 8 type factory
             $factory = call_user_func_array([$modelName, 'factory'], []);
             if (count($states)) {
                 foreach ($states as $state) {

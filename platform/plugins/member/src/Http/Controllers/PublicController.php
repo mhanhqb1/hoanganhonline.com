@@ -7,7 +7,6 @@ use Botble\Media\Services\ThumbnailService;
 use Botble\Member\Http\Resources\ActivityLogResource;
 use File;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Botble\Base\Http\Responses\BaseHttpResponse;
 use Botble\Media\Repositories\Interfaces\MediaFileInterface;
 use Botble\Member\Http\Requests\AvatarRequest;
@@ -155,7 +154,7 @@ class PublicController extends Controller
     public function postAvatar(AvatarRequest $request, ThumbnailService $thumbnailService, BaseHttpResponse $response)
     {
         try {
-            $account = Auth::guard('member')->user();
+            $account = auth('member')->user();
 
             $result = RvMedia::handleUpload($request->file('avatar_file'), 0, 'members');
 
