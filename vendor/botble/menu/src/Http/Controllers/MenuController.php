@@ -10,12 +10,12 @@ use Botble\Base\Forms\FormBuilder;
 use Botble\Base\Http\Controllers\BaseController;
 use Botble\Base\Http\Responses\BaseHttpResponse;
 use Botble\Menu\Forms\MenuForm;
-use Botble\Menu\Repositories\Interfaces\MenuLocationInterface;
-use Botble\Menu\Tables\MenuTable;
 use Botble\Menu\Http\Requests\MenuRequest;
 use Botble\Menu\Repositories\Eloquent\MenuRepository;
 use Botble\Menu\Repositories\Interfaces\MenuInterface;
+use Botble\Menu\Repositories\Interfaces\MenuLocationInterface;
 use Botble\Menu\Repositories\Interfaces\MenuNodeInterface;
+use Botble\Menu\Tables\MenuTable;
 use Botble\Support\Services\Cache\Cache;
 use Exception;
 use Illuminate\Cache\CacheManager;
@@ -128,11 +128,10 @@ class MenuController extends BaseController
     {
         $locations = $request->input('locations', []);
 
-        $this->menuLocationRepository
-            ->getModel()
-            ->where('menu_id', $menu->id)
-            ->whereNotIn('location', $locations)
-            ->delete();
+        $this->menuLocationRepository->deleteBy([
+            'menu_id' => $menu->id,
+            ['location', 'NOT_IN', $locations],
+        ]);
 
         foreach ($locations as $location) {
             $menuLocation = $this->menuLocationRepository->firstOrCreate([
@@ -152,7 +151,7 @@ class MenuController extends BaseController
      * @param FormBuilder $formBuilder
      * @return string
      */
-    public function edit($id, Request $request, FormBuilder $formBuilder)
+    public function edit($id, FormBuilder $formBuilder, Request $request)
     {
         page_title()->setTitle(trans('packages/menu::menu.edit'));
 
@@ -191,7 +190,7 @@ class MenuController extends BaseController
 
         $deletedNodes = explode(' ', ltrim($request->input('deleted_nodes', '')));
         if ($deletedNodes) {
-            $this->menuNodeRepository->getModel()->whereIn('id', $deletedNodes)->delete();
+            $this->menuNodeRepository->deleteBy([['id', 'IN', $deletedNodes]]);
         }
         Menu::recursiveSaveMenu(json_decode($request->input('menu_nodes'), true), $menu->id, 0);
 

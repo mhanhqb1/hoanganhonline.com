@@ -1,9 +1,10 @@
 <?php
 
+use Botble\Page\Models\Page;
+
 return [
     // List supported modules or plugins
     'supported' => [
-        'Botble\Blog\Models\Post',
-        'Botble\Page\Models\Page',
+        Page::class,
     ],
 ];

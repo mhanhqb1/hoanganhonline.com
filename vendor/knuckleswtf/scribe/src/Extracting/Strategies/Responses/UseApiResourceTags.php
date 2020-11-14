@@ -198,8 +198,8 @@ class UseApiResourceTags extends Strategy
                 return $factory->make();
             }
         } catch (Exception $e) {
-            c::debug("Eloquent model factory failed to instantiate {$type}; trying to fetch from database.");
-            e::dumpExceptionIfVerbose($e);
+            c::warn("Eloquent model factory failed to instantiate {$type}; trying to fetch from database.");
+            e::dumpExceptionIfVerbose($e, true);
 
             $instance = new $type();
             if ($instance instanceof \Illuminate\Database\Eloquent\Model) {
@@ -211,7 +211,7 @@ class UseApiResourceTags extends Strategy
                     }
                 } catch (Exception $e) {
                     // okay, we'll stick with `new`
-                    c::debug("Failed to fetch first {$type} from database; using `new` to instantiate.");
+                    c::warn("Failed to fetch first {$type} from database; using `new` to instantiate.");
                     e::dumpExceptionIfVerbose($e);
                 }
             }

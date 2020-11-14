@@ -1,6 +1,6 @@
 <?php
 
-Route::group(['namespace' => 'Botble\CustomField\Http\Controllers', 'middleware' => 'web'], function () {
+Route::group(['namespace' => 'Botble\CustomField\Http\Controllers', 'middleware' => ['web', 'core']], function () {
     Route::group(['prefix' => BaseHelper::getAdminPrefix(), 'middleware' => 'auth'], function () {
 
         Route::group(['prefix' => 'custom-fields', 'as' => 'custom-fields.'], function () {

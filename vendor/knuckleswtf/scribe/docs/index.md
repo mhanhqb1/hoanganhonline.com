@@ -2,18 +2,23 @@
 
 Generate API documentation for humans from your Laravel/Lumen/[Dingo](https://github.com/dingo/api) codebase. [Here's what the output looks like](https://shalvah.me/TheCensorshipAPI/).
 
+There's a [Node.js version](https://github.com/knuckleswtf/scribe-js), too!
 
 ```eval_rst
-.. admonition:: Wondering where to get started?
+.. admonition:: Wondering where to start? Try one of these links:
    
-   If you're coming from mpociot/laravel-apidoc-generator, check out `what's new <whats-new.html>`_ and the `migration guide <migrating.html>`_. Otherwise, check out the `getting started guide <guide-getting-started.html>`_.
+   - `What's new in v2 <migrating-v2.html>`_
+   - `Migrating from mpociot/laravel-apidoc-generator <migrating.html>`_, or
+   - the `getting started guide <guide-getting-started.html>`_.
 ```
 
 ```eval_rst
-.. Tip:: Looking to document your Node.js APIs? Check out `Scribe for JS <https://github.com/knuckleswtf/scribe-js>`_.
+.. Tip:: 👋 Want to learn how to make friendly, testable, and maintainable API documentation? I made `a course <https://apidocsfordevs.com?utm_source=scribe-laravel&utm_medium=referral&utm_campaign=launch>`_ for you! Get 40% off until 28 November with the code KICKASSDOCSYEAH.
 ```
+
 ## Features
 - Pretty HTML documentation page, with included code samples and friendly text
+- Included "Try It Out" button so users can test endpoints right from their browser
 - Markdown source files that can be edited to modify docs
 - Extracts body parameters information from FormRequests
 - Safely calls API endpoints to generate sample responses, with authentication and other custom configuration supported
@@ -29,7 +34,7 @@ Generate API documentation for humans from your Laravel/Lumen/[Dingo](https://gi
    :maxdepth: 2
 
    guide-getting-started
-   whats-new
+   migrating-v2
    migrating
    documenting/index
    generating-documentation
@@ -42,7 +47,7 @@ Generate API documentation for humans from your Laravel/Lumen/[Dingo](https://gi
 ```
 
 ## Installation
-PHP 7.2.5 and Laravel/Lumen 5.8 or higher are required.
+PHP 7.2.5 and Laravel/Lumen 6 or higher are required.
 
 ```sh
 composer require --dev knuckleswtf/scribe
@@ -68,3 +73,5 @@ $app->register(\Knuckles\Scribe\ScribeServiceProvider::class);
 ```php
 $app->configure('scribe');
 ```
+
+Next up: follow the [Getting Started guide](./guide-getting-started.html) to see what you can do with Scribe.

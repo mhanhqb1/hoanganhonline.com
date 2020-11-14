@@ -5,12 +5,10 @@ namespace Botble\Gallery\Models;
 use Botble\ACL\Models\User;
 use Botble\Base\Enums\BaseStatusEnum;
 use Botble\Base\Traits\EnumCastable;
-use Botble\Slug\Traits\SlugTrait;
 use Botble\Base\Models\BaseModel;
 
 class Gallery extends BaseModel
 {
-    use SlugTrait;
     use EnumCastable;
 
     /**
@@ -38,7 +36,6 @@ class Gallery extends BaseModel
     protected $fillable = [
         'name',
         'description',
-        'parent_id',
         'is_featured',
         'order',
         'image',

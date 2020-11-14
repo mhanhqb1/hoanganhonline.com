@@ -31,7 +31,7 @@
     <!--[if IE 7]><body class="ie7 lt-ie8 lt-ie9 lt-ie10"><![endif]-->
     <!--[if IE 8]><body class="ie8 lt-ie9 lt-ie10"><![endif]-->
     <!--[if IE 9]><body class="ie9 lt-ie10"><![endif]-->
-    <body @if (class_exists('Language', false) && Language::getCurrentLocaleRTL()) dir="rtl" @endif>
+    <body @if (BaseHelper::siteLanguageDirection() == 'rtl') dir="rtl" @endif>
     <header class="header" id="header">
         <div class="header-wrap">
             <nav class="nav-top">
@@ -52,18 +52,18 @@
                     <div class="pull-right">
                         @if (is_plugin_active('member'))
                             <ul class="pull-left">
-                                @auth('member')
+                                @if (auth('member')->check())
                                     <li><a href="{{ route('public.member.dashboard') }}" rel="nofollow"><img src="{{ auth('member')->user()->avatar_url }}" class="img-circle" width="20" alt="{{ auth('member')->user()->getFullName() }}"> &nbsp;<span>{{ auth('member')->user()->getFullName() }}</span></a></li>
                                     <li><a href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();" rel="nofollow"><i class="fa fa-sign-out"></i> {{ __('Logout') }}</a></li>
-                                @elseauth
+                                @else
                                     <li><a href="{{ route('public.member.login') }}" rel="nofollow"><i class="fa fa-sign-in"></i> {{ __('Login') }}</a></li>
-                                @endauth
+                                @endif
                             </ul>
-                            @auth('member')
+                            @if (auth('member')->check())
                                 <form id="logout-form" action="{{ route('public.member.logout') }}" method="POST" style="display: none;">
                                     @csrf
                                 </form>
-                            @endauth
+                            @endif
                         @endif
                         <div class="pull-left">
                             <div class="pull-right">

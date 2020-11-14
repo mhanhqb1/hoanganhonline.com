@@ -29,10 +29,10 @@ class GetFromFormRequest extends Strategy
 
     public function __invoke(Route $route, ReflectionClass $controller, ReflectionFunctionAbstract $method, array $routeRules, array $alreadyExtractedData = []): array
     {
-        return $this->getBodyParametersFromFormRequest($method);
+        return $this->getBodyParametersFromFormRequest($method, $route);
     }
 
-    public function getBodyParametersFromFormRequest(ReflectionFunctionAbstract $method): array
+    public function getBodyParametersFromFormRequest(ReflectionFunctionAbstract $method, $route = null): array
     {
         foreach ($method->getParameters() as $param) {
             $paramType = $param->getType();
@@ -50,7 +50,7 @@ class GetFromFormRequest extends Strategy
                 $parameterClass = new ReflectionClass($parameterClassName);
             } catch (ReflectionException $e) {
 
-                dump($e->getMessage());
+                dump("Exception: " . $e->getMessage());
                 continue;
             }
 
@@ -58,14 +58,18 @@ class GetFromFormRequest extends Strategy
             if (
                 (class_exists(LaravelFormRequest::class) && $parameterClass->isSubclassOf(LaravelFormRequest::class))
                 || (class_exists(DingoFormRequest::class) && $parameterClass->isSubclassOf(DingoFormRequest::class))) {
-                /** @var LaravelFormRequest|DingoFormRequest\ $formRequest */
+                /** @var LaravelFormRequest|DingoFormRequest $formRequest */
                 $formRequest = new $parameterClassName;
+                // Set the route properly so it works for people who have code that checks for the route.
+                $formRequest->setRouteResolver(function () use ($route) {
+                    return $route;
+                });
                 $bodyParametersFromFormRequest = $this->getBodyParametersFromValidationRules(
                     $this->getRouteValidationRules($formRequest),
                     $this->getCustomParameterData($formRequest)
                 );
 
-                return $bodyParametersFromFormRequest;
+                return $this->normaliseArrayAndObjectParameters($bodyParametersFromFormRequest);
             }
         }
 
@@ -116,6 +120,7 @@ class GetFromFormRequest extends Strategy
             $userSpecifiedParameterInfo = $customParameterData[$parameter] ?? [];
 
             $parameterData = [
+                'name' => $parameter,
                 'required' => false,
                 'type' => null,
                 'value' => self::$MISSING_VALUE,
@@ -158,6 +163,7 @@ class GetFromFormRequest extends Strategy
                 $parameterData['value'] = $this->castToType($parameterData['value'], $parameterData['type']);
             }
 
+            $parameterData['name'] = $parameter;
             $parameters[$parameter] = $parameterData;
         }
 
@@ -178,26 +184,17 @@ class GetFromFormRequest extends Strategy
         // but Laravel will ignore any nested array rules (`ids.*')
         // unless the key referenced (`ids`) exists in the dataset and is a non-empty array
         // So we'll create a single-item array for each array parameter
-        $values = collect($rules)
-            ->filter(function ($value, $key) {
-                return Str::contains($key, '.*');
-            })->mapWithKeys(function ($value, $key) {
-                if (Str::endsWith($key, '.*')) {
-                    // We're dealing with a simple array of primitives
-                    return [Str::substr($key, 0, -2) => [Str::random()]];
-                } elseif (Str::contains($key, '.*.')) {
-                    // We're dealing with an array of objects
-                    [$key, $property] = explode('.*.', $key);
+        $testData = [];
+        foreach ($rules as $key => $ruleset) {
+            if (!Str::contains($key, '.*')) continue;
 
-                    // Even though this will be overwritten by another property declaration in the rules, we're fine.
-                    // All we need is for Laravel to see this key exists
-                    return [$key => [[$property => Str::random()]]];
-                }
-            })->all();
+            // All we need is for Laravel to see this key exists
+            Arr::set($testData, str_replace('.*', '.0', $key), Str::random());
+        }
 
         // Now this will return the complete ruleset.
         // Nested array parameters will be present, with '*' replaced by '0'
-        $newRules = Validator::make($values, $rules)->getRules();
+        $newRules = Validator::make($testData, $rules)->getRules();
 
         // Transform the key names back from 'ids.0' to 'ids.*'
         return collect($newRules)->mapWithKeys(function ($val, $paramName) use ($rules) {
@@ -263,7 +260,7 @@ class GetFromFormRequest extends Strategy
                 $parameterData['setter'] = function () {
                     return [$this->generateDummyValue('string')];
                 };
-                $parameterData['type'] = $rule;
+                $parameterData['type'] = 'array'; // The cleanup code in normaliseArrayAndObjectParameters() will set this to a valid type (x[] or object)
                 break;
             case 'file':
                 $parameterData['type'] = 'file';
@@ -411,6 +408,116 @@ class GetFromFormRequest extends Strategy
         }
 
         return [strtolower(trim($rule)), $ruleArguments];
+    }
+
+    /**
+     * Laravel uses .* notation for arrays. This PR aims to normalise that into our "new syntax".
+     *
+     * 'years.*' with type 'integer' becomes 'years' with type 'integer[]'
+     * 'cars.*.age' with type 'string' becomes 'cars[].age' with type 'string' and 'cars' with type 'object[]'
+     * 'cars.*.things.*.*' with type 'string' becomes 'cars[].things' with type 'string[][]' and 'cars' with type
+     * 'object[]'
+     *
+     * @param array[] $bodyParametersFromValidationRules
+     *
+     * @return array
+     */
+    public function normaliseArrayAndObjectParameters(array $bodyParametersFromValidationRules): array
+    {
+        $results = [];
+        foreach ($bodyParametersFromValidationRules as $name => $details) {
+
+            if (isset($results[$name])) {
+                continue;
+            }
+            if ($details['type'] === 'array') {
+                // Generic array type. If a child item exists,
+                // this will be overwritten with the correct type (such as object or object[]) by the code below
+                $details['type'] = 'string[]';
+            }
+
+            if (Str::endsWith($name, '.*')) {
+                // Wrap array example properly
+                $needsWrapping = !is_array($details['value']);
+
+                $nestingLevel = 0;
+                // Change cars.*.dogs.things.*.* with type X to cars.*.dogs.things with type X[][]
+                while (Str::endsWith($name, '.*')) {
+                    $details['type'] .= '[]';
+                    if ($needsWrapping) {
+                        // Make it two items in each array
+                        $secondItem = $secondValue = $details['setter']();
+                        for ($i = 0; $i < $nestingLevel; $i++) {
+                            $secondItem = [$secondValue];
+                        }
+                        $details['value'] = [$details['value'], $secondItem];
+                    }
+                    $name = substr($name, 0, -2);
+                    $nestingLevel++;
+                }
+            }
+
+            // Now make sure the field cars.*.dogs exists
+            $parentPath = $name;
+            while (Str::contains($parentPath, '.')) {
+                $parentPath = preg_replace('/\.[^.]+$/', '', $parentPath);
+                if (empty($bodyParametersFromValidationRules[$parentPath])) {
+                    if (Str::endsWith($parentPath, '.*')) {
+                        $parentPath = substr($parentPath, 0, -2);
+                        $type = 'object[]';
+                        $value = [[]];
+                    } else {
+                        $type = 'object';
+                        $value = [];
+                    }
+                    $normalisedPath = str_replace('.*.', '[].', $parentPath);
+                    $results[$normalisedPath] = [
+                        'name' => $normalisedPath,
+                        'type' => $type,
+                        'required' => false,
+                        'description' => '',
+                        'value' => $value,
+                    ];
+                } else {
+                    // if the parent field already exists with a type 'array'
+                    $parentDetails = $bodyParametersFromValidationRules[$parentPath];
+                    unset($bodyParametersFromValidationRules[$parentPath]);
+                    if (Str::endsWith($parentPath, '.*')) {
+                        $parentPath = substr($parentPath, 0, -2);
+                        $parentDetails['type'] = 'object[]';
+                        // Set the example too. Very likely the example array was an array of strings or an empty array
+                        if (empty($parentDetails['value']) || is_string($parentDetails['value'][0]) || is_string($parentDetails['value'][0][0])) {
+                            $parentDetails['value'] = [[]];
+                        }
+                    } else {
+                        $parentDetails['type'] = 'object';
+                        if (empty($parentDetails['value']) || is_string($parentDetails['value'][0])) {
+                            $parentDetails['value'] = [];
+                        }
+                    }
+                    $normalisedPath = str_replace('.*.', '[].', $parentPath);
+                    $parentDetails['name'] = $normalisedPath;
+                    $results[$normalisedPath] = $parentDetails;
+                }
+            }
+
+            $details['name'] = $name = str_replace('.*.', '[].', $name);
+            unset($details['setter']);
+
+            // Change type 'array' to 'object' if there are subfields
+            if (
+                $details['type'] === 'array'
+                && Arr::first(array_keys($bodyParametersFromValidationRules), function ($key) use ($name) {
+                    return preg_match("/{$name}\\.[^*]/", $key);
+                })
+            ) {
+                $details['type'] = 'object';
+            }
+            $results[$name] = $details;
+
+        }
+
+        return $results;
     }
 }
 

@@ -53,12 +53,12 @@ class GetFromResponseFieldTag extends Strategy
                     $description = trim($description);
                 }
 
-                $type = $this->normalizeParameterType($type);
+                $type = $this->normalizeTypeName($type);
 
                 // Support optional type in annotation
                 if (!$this->isSupportedTypeInDocBlocks($type)) {
                     // Then that wasn't a type, but part of the description
-                    $description = "$type $description";
+                    $description = trim("$type $description");
 
                     // Try to get a type from first 2xx response
                     $validResponse = collect($responses)->first(function ($r) {
@@ -76,7 +76,7 @@ class GetFromResponseFieldTag extends Strategy
                             ?? $validResponse['data'][0][$name] // Maybe an Api Resource Collection?
                             ?? $nonexistent;
                         if ($value !== $nonexistent) {
-                            $type =  $this->normalizeParameterType(gettype($value));
+                            $type =  $this->normalizeTypeName(gettype($value));
                         } else {
                             $type = '';
                         }

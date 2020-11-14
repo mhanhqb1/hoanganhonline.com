@@ -8,7 +8,6 @@ use Illuminate\Support\Str;
 use Knuckles\Scribe\Tools\DocumentationConfig;
 use Ramsey\Uuid\Uuid;
 use ReflectionMethod;
-use Knuckles\Scribe\Tools\ConsoleOutputUtils as c;
 
 class PostmanCollectionWriter
 {
@@ -18,41 +17,34 @@ class PostmanCollectionWriter
     const VERSION = '2.1.0';
 
     /**
-     * @var array|null
-     */
-    private $auth;
-
-    /**
      * @var DocumentationConfig
      */
     protected $config;
 
+    protected $baseUrl;
+
     public function __construct(DocumentationConfig $config = null)
     {
         $this->config = $config ?: new DocumentationConfig(config('scribe', []));
-        $this->auth = config('scribe.postman.auth');
-
-        if ($this->auth) {
-            c::deprecated('the `postman.auth` config setting', 'the `postman.overrides` setting');
-        }
+        $this->baseUrl = ($this->config->get('postman.base_url') ?: $this->config->get('base_url')) ?: config('app.url');
     }
 
     public function generatePostmanCollection(Collection $groupedEndpoints)
     {
-        $description = config('scribe.postman.description', '');
-
-        if ($description) {
-            c::deprecated('the `postman.description` config setting', 'the `description` setting');
-        } else {
-            $description = config('scribe.description', '');
-        }
-
         $collection = [
-            'variable' => [],
+            'variable' => [
+                [
+                    'id' => 'baseUrl',
+                    'key' => 'baseUrl',
+                    'type' => 'string',
+                    'name' => 'string',
+                    'value' => parse_url($this->baseUrl, PHP_URL_HOST) ?: $this->baseUrl, // if there's no protocol, parse_url might fail
+                ],
+            ],
             'info' => [
-                'name' => config('scribe.title') ?: config('app.name') . ' API',
+                'name' => $this->config->get('title') ?: config('app.name'),
                 '_postman_id' => Uuid::uuid4()->toString(),
-                'description' => $description,
+                'description' => $this->config->get('description', ''),
                 'schema' => "https://schema.getpostman.com/json/collection/v" . self::VERSION . "/collection.json",
             ],
             'item' => $groupedEndpoints->map(function (Collection $routes, $groupName) {
@@ -64,11 +56,6 @@ class PostmanCollectionWriter
             })->values()->toArray(),
             'auth' => $this->generateAuthObject(),
         ];
-
-        if (!empty($this->auth)) {
-            $collection['auth'] = $this->auth;
-        }
-
         return $collection;
     }
 
@@ -110,7 +97,7 @@ class PostmanCollectionWriter
 
     protected function generateEndpointItem($endpoint): array
     {
-        return [
+        $endpointItem = [
             'name' => $endpoint['metadata']['title'] !== '' ? $endpoint['metadata']['title'] : $endpoint['uri'],
             'request' => [
                 'url' => $this->generateUrlObject($endpoint),
@@ -118,10 +105,16 @@ class PostmanCollectionWriter
                 'header' => $this->resolveHeadersForEndpoint($endpoint),
                 'body' => empty($endpoint['bodyParameters']) ? null : $this->getBodyData($endpoint),
                 'description' => $endpoint['metadata']['description'] ?? null,
-                'auth' => ($endpoint['metadata']['authenticated'] ?? false) ? null : ['type' => 'noauth'],
             ],
             'response' => [],
         ];
+
+
+        if (($endpoint['metadata']['authenticated'] ?? false) === false) {
+            $endpointItem['request']['auth'] = ['type' => 'noauth'];
+        }
+
+        return $endpointItem;
     }
 
     protected function getBodyData(array $endpoint): array
@@ -167,15 +160,14 @@ class PostmanCollectionWriter
 
     protected function resolveHeadersForEndpoint($route)
     {
-        $headers = collect($route['headers']);
+        [$where, $authParam] = $this->getAuthParamToExclude();
 
-        // Exclude authentication headers if they're handled by Postman auth
-        $authHeader = $this->getAuthHeader();
-        if (!empty($authHeader)) {
-            $headers = $headers->except($authHeader);
+        $headers = collect($route['headers']);
+        if ($where === 'header') {
+            unset($headers[$authParam]);
         }
 
-        return $headers
+        $headers = $headers
             ->union([
                 'Accept' => 'application/json',
             ])
@@ -190,47 +182,64 @@ class PostmanCollectionWriter
             })
             ->values()
             ->all();
+
+        return $headers;
     }
 
     protected function generateUrlObject($route)
     {
-        // URL Parameters are collected by the `UrlParameters` strategies, but only make sense if they're in the route
-        // definition. Filter out any URL parameters that don't appear in the URL.
-        $urlParams = collect($route['urlParameters'])->filter(function ($_, $key) use ($route) {
-            return Str::contains($route['uri'], '{' . $key . '}');
-        });
-
-        $baseUrl = $this->getBaseUrl($this->config->get('postman.base_url', $this->config->get('base_url')));
         $base = [
-            'protocol' => Str::startsWith($baseUrl, 'https') ? 'https' : 'http',
-            'host' => $baseUrl,
+            'protocol' => Str::startsWith($this->baseUrl, 'https') ? 'https' : 'http',
+            'host' => '{{baseUrl}}',
             // Change laravel/symfony URL params ({example}) to Postman style, prefixed with a colon
             'path' => preg_replace_callback('/\{(\w+)\??}/', function ($matches) {
                 return ':' . $matches[1];
             }, $route['uri']),
-            'query' => collect($route['queryParameters'] ?? [])->map(function ($parameterData, $key) {
-                // TODO remove: unneeded with new syntax
-                $key = rtrim($key, ".*");
-                return [
-                    'key' => $key,
+        ];
+
+        $query = [];
+        [$where, $authParam] = $this->getAuthParamToExclude();
+        foreach ($route['queryParameters'] ?? [] as $name => $parameterData) {
+            if ($where === 'query' && $authParam === $name) {
+                continue;
+            }
+
+            if (Str::endsWith($parameterData['type'], '[]') || $parameterData['type'] === 'object') {
+                $values = empty($parameterData['value']) ? [] : $parameterData['value'];
+                foreach ($values as $index => $value) {
+                    // PHP's parse_str supports array query parameters as filters[0]=name&filters[1]=age OR filters[]=name&filters[]=age
+                    // Going with the first to also support object query parameters
+                    // See https://www.php.net/manual/en/function.parse-str.php
+                    $query[] = [
+                        'key' => urlencode("{$name}[$index]"),
+                        'value' => urlencode($value),
+                        'description' => strip_tags($parameterData['description']),
+                        // Default query params to disabled if they aren't required and have empty values
+                        'disabled' => !($parameterData['required'] ?? false) && empty($parameterData['value']),
+                    ];
+                }
+            } else {
+                $query[] = [
+                    'key' => urlencode($name),
                     'value' => urlencode($parameterData['value']),
                     'description' => strip_tags($parameterData['description']),
                     // Default query params to disabled if they aren't required and have empty values
                     'disabled' => !($parameterData['required'] ?? false) && empty($parameterData['value']),
                 ];
-            })->values()->toArray(),
-        ];
+            }
+        }
+
+        $base['query'] = $query;
 
         // Create raw url-parameter (Insomnia uses this on import)
-        $query = collect($base['query'] ?? [])->map(function ($queryParamData) {
+        $queryString = collect($base['query'] ?? [])->map(function ($queryParamData) {
             return $queryParamData['key'] . '=' . $queryParamData['value'];
         })->implode('&');
         $base['raw'] = sprintf('%s://%s/%s%s',
-            $base['protocol'], $base['host'], $base['path'], $query ? '?' . $query : null
+            $base['protocol'], $base['host'], $base['path'], $queryString ? "?{$queryString}" : null
         );
 
-        // If there aren't any url parameters described then return what we've got
-        /** @var $urlParams Collection */
+        $urlParams = collect($route['urlParameters']);
         if ($urlParams->isEmpty()) {
             return $base;
         }
@@ -247,39 +256,16 @@ class PostmanCollectionWriter
         return $base;
     }
 
-    protected function getAuthHeader()
+    private function getAuthParamToExclude(): array
     {
-        $auth = $this->auth;
-        if (empty($auth) || !is_string($auth['type'] ?? null)) {
-            return null;
+        if (!$this->config->get('auth.enabled')) {
+            return [null, null];
         }
 
-        switch ($auth['type']) {
-            case 'bearer':
-                return 'Authorization';
-            case 'apikey':
-                $spec = $auth['apikey'];
-
-                if (isset($spec['in']) && $spec['in'] !== 'header') {
-                    return null;
-                }
-
-                return $spec['key'];
-            default:
-                return null;
+        if (in_array($this->config->get('auth.in'), ['bearer', 'basic'])) {
+            return ['header', 'Authorization'];
+        } else {
+            return [$this->config->get('auth.in'), $this->config->get('auth.name')];
         }
-    }
-
-    protected function getBaseUrl($baseUrl)
-    {
-        if (Str::contains(app()->version(), 'Lumen')) { //Is Lumen
-            $reflectionMethod = new ReflectionMethod(\Laravel\Lumen\Routing\UrlGenerator::class, 'getRootUrl');
-            $reflectionMethod->setAccessible(true);
-            $url = app('url');
-
-            return $reflectionMethod->invokeArgs($url, ['', $baseUrl]);
-        }
-
-        return URL::formatRoot('', $baseUrl);
     }
 }

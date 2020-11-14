@@ -3,6 +3,7 @@
 namespace Botble\Slug\Listeners;
 
 use Botble\Base\Events\UpdatedContentEvent;
+use Botble\Slug\Events\UpdatedSlugEvent;
 use Botble\Slug\Repositories\Interfaces\SlugInterface;
 use Botble\Slug\Services\SlugService;
 use Exception;
@@ -18,7 +19,7 @@ class UpdatedContentListener
     protected $slugRepository;
 
     /**
-     * SlugService constructor.
+     * UpdatedContentListener constructor.
      * @param SlugInterface $slugRepository
      */
     public function __construct(SlugInterface $slugRepository)
@@ -56,18 +57,22 @@ class UpdatedContentListener
                 ]);
 
                 if ($item) {
-                    $slugService = new SlugService(app(SlugInterface::class));
-                    $item->key = $slugService->create($slug, $event->data->slug_id);
-                    $item->prefix = SlugHelper::getPrefix(get_class($event->data));
-                    $this->slugRepository->createOrUpdate($item);
+                    if ($item->key != $slug) {
+                        $slugService = new SlugService(app(SlugInterface::class));
+                        $item->key = $slugService->create($slug, $event->data->slug_id);
+                        $item->prefix = SlugHelper::getPrefix(get_class($event->data));
+                        $this->slugRepository->createOrUpdate($item);
+                    }
                 } else {
-                    $this->slugRepository->createOrUpdate([
+                    $item = $this->slugRepository->createOrUpdate([
                         'key'            => $slug,
                         'reference_type' => get_class($event->data),
                         'reference_id'   => $event->data->id,
                         'prefix'         => SlugHelper::getPrefix(get_class($event->data)),
                     ]);
                 }
+
+                event(new UpdatedSlugEvent($event->data, $item));
             } catch (Exception $exception) {
                 info($exception->getMessage());
             }

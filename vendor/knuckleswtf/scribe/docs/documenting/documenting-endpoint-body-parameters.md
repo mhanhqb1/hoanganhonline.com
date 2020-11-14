@@ -11,8 +11,10 @@ The `@bodyParam` annotation takes the name of the parameter, its type, an option
 - `integer`
 - `number`
 - `boolean`
-- `array`, `object` (see [Handling array and object parameters](#handling-array-and-object-parameters) below)
+- `object` (see [Handling array and object parameters](#handling-array-and-object-parameters) below)
 - `file` (see [Documenting File Uploads](#documenting-file-uploads) below)
+
+You can append `[]` at the end of a type any number of times to indicate an array field (`integer[]` = array of integers).
 
 By default, Scribe will generate a random value for each parameter, to be used in the example requests and response calls. If you'd like to use a specific example value, you can do so by adding `Example: your-example-here` to the end of your description.
 
@@ -60,23 +62,38 @@ public function createPost(CreatePostRequest $request)
 ```
 
 ### Handling array and object parameters
-Sometimes you have body parameters that are arrays or objects. To handle them in `@bodyparam`, Scribe follows Laravel's convention:
-- For arrays: use `<name>.*`
-- For objects: use `<name>.<key>`.
+Sometimes you have body parameters that are arrays or objects. To handle them in `@bodyparam`, Scribe follows this convention:
 
-This means that, for an array of objects, you'd use `<name>.*.<key>`.
+- For arrays: use a single field with type `<type of items>[]`. For instance, to denote an array `cars` of elements of type `integer`:
+  ```
+  @bodyParam cars integer[]
+  ```
+  
+- For objects: you need a parent field with type `object` and an entry for each field, named with the dot notation `<parent name>.<field>`. For instance, to denote an object `cars` with a field `name` of type `string`:
+  ```
+  @bodyParam cars object
+  @bodyParam cars.name string
+  ```
 
-You can also add a "parent" description if you like, by using `@bodyParam` with the type as "object" or "array".
+- For an array of objects, you need a parent field with type `object[]`, and an entry for each field, named with the dot notation `<parent name>[].<field>`. For instance, to denote an array of objects `cars` with each item having field `name`:
+  ```
+  @bodyParam cars object[]
+  @bodyParam cars[].name string
+  ```
+
+```eval_rst
+.. Important:: For objects and arrays of objects, both lines are required, otherwise you might run into strange errors.
+```
 
 ```php
 /**
  * @bodyParam user object required The user details
  * @bodyParam user.name string required The user's name
- * @bodyParam user.age string required The user's age
- * @bodyParam friend_ids array List of the user's friends.
- * @bodyParam friend_ids.* int User's friends.
- * @bodyParam cars.*.year string The year the car was made. Example: 1997
- * @bodyParam cars.*.make string The make of the car. Example: Toyota
+ * @bodyParam user.age string required The user's age 
+ * @bodyParam friend_ids int[] List of the user's friends.
+ * @bodyParam cars object[] List of cars
+ * @bodyParam cars[].year string The year the car was made. Example: 1997
+ * @bodyParam cars[].make string The make of the car. Example: Toyota
  */
 ```
 
@@ -161,7 +178,7 @@ This gives:
 ## Documenting file uploads
 You can document file inputs by using `@bodyParam` or FormRequest rules with a type `file`. You can add a description and example as usual. 
 
-For files, your example should be the absolute path to a file that exists on your machine. If you don't specify an example, Scribe will generate a fake file for example requests and response calls.
+For files, your example should be the path to a file that exists on your machine. This path should be absolute or relative to your project directory (but not in the project root). If you don't specify an example, Scribe will generate a fake file for example requests and response calls.
 
 ```php
 /**

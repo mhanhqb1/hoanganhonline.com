@@ -3,6 +3,7 @@
 namespace Botble\ACL\Http\Controllers;
 
 use Botble\ACL\Forms\RoleForm;
+use Botble\Base\Events\BeforeEditContentEvent;
 use Botble\Base\Forms\FormBuilder;
 use Botble\Base\Http\Responses\BaseHttpResponse;
 use Botble\ACL\Events\RoleAssignmentEvent;
@@ -98,11 +99,14 @@ class RoleController extends BaseController
     /**
      * @param int $id
      * @param FormBuilder $formBuilder
+     * @param Request $request
      * @return string
      */
-    public function edit($id, FormBuilder $formBuilder)
+    public function edit($id, FormBuilder $formBuilder, Request $request)
     {
         $role = $this->roleRepository->findOrFail($id);
+
+        event(new BeforeEditContentEvent($request, $role));
 
         page_title()->setTitle(trans('core/acl::permissions.details') . ' - ' . e($role->name));
 

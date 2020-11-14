@@ -22,6 +22,11 @@ use Request;
 class LanguageManager
 {
     /**
+     * The env key that the forced locale for routing is stored in.
+     */
+    public $envRoutingKey = 'ROUTING_LOCALE';
+
+    /**
      * @var LanguageInterface
      */
     protected $languageRepository;
@@ -114,6 +119,13 @@ class LanguageManager
      * @var array
      */
     protected $defaultLanguageSelect = ['*'];
+
+    /**
+     * An array that contains all translated routes by url
+     *
+     * @var array
+     */
+    protected $cachedTranslatedRoutesByUrl = [];
 
     /**
      * Language constructor.
@@ -293,6 +305,10 @@ class LanguageManager
             // If the locale has not been passed through the function
             // it tries to get it from the first segment of the url
             $locale = request()->segment(1);
+
+            if (!$locale) {
+                $locale = $this->getForcedLocale();
+            }
         }
 
         if (array_key_exists($locale, $this->supportedLocales)) {
@@ -1072,5 +1088,46 @@ class LanguageManager
     protected function useAcceptLanguageHeader()
     {
         return config('plugins.language.general.useAcceptLanguageHeader');
+    }
+
+    /**
+     * Returns serialized translated routes for caching purposes.
+     *
+     * @return string
+     */
+    public function getSerializedTranslatedRoutes()
+    {
+        return base64_encode(serialize($this->translatedRoutes));
+    }
+
+    /**
+     * Sets the translated routes list.
+     * Only useful from a cached routes context.
+     *
+     * @param string $serializedRoutes
+     */
+    public function setSerializedTranslatedRoutes($serializedRoutes)
+    {
+        if (!$serializedRoutes) {
+            return;
+        }
+
+        $this->translatedRoutes = unserialize(base64_decode($serializedRoutes));
+    }
+
+    /**
+     * Returns the forced environment set route locale.
+     *
+     * @return string|null
+     */
+    public function getForcedLocale()
+    {
+        return env($this->envRoutingKey, function () {
+            $value = getenv($this->envRoutingKey);
+
+            if ($value !== false) {
+                return $value;
+            }
+        });
     }
 }

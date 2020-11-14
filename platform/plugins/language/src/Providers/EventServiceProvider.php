@@ -2,6 +2,7 @@
 
 namespace Botble\Language\Providers;
 
+use Artisan;
 use Botble\Base\Events\CreatedContentEvent;
 use Botble\Base\Events\DeletedContentEvent;
 use Botble\Base\Events\UpdatedContentEvent;
@@ -10,6 +11,7 @@ use Botble\Language\Listeners\DeletedContentListener;
 use Botble\Language\Listeners\ThemeRemoveListener;
 use Botble\Language\Listeners\UpdatedContentListener;
 use Botble\Theme\Events\ThemeRemoveEvent;
+use Event;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 
 class EventServiceProvider extends ServiceProvider
@@ -33,4 +35,13 @@ class EventServiceProvider extends ServiceProvider
             ThemeRemoveListener::class,
         ],
     ];
+
+    public function boot()
+    {
+        parent::boot();
+
+        Event::listen(['cache:cleared'], function () {
+            Artisan::call('route:trans:clear');
+        });
+    }
 }

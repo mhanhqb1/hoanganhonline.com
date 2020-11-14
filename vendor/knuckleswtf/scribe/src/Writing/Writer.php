@@ -9,6 +9,7 @@ use Illuminate\Support\Str;
 use Knuckles\Pastel\Pastel;
 use Knuckles\Scribe\Tools\ConsoleOutputUtils;
 use Knuckles\Scribe\Tools\DocumentationConfig;
+use Knuckles\Scribe\Tools\Flags;
 use Knuckles\Scribe\Tools\Utils;
 use Symfony\Component\Yaml\Yaml;
 
@@ -120,7 +121,9 @@ class Writer
         $settings = [
             'languages' => $this->config->get('example_languages'),
             'logo' => $this->config->get('logo'),
-            'title' => $this->config->get('title', config('app.name', '') . ' API Documentation'),
+            'title' => $this->config->get('title') ?: config('app.name', '') . ' Documentation',
+            'auth' => $this->config->get('auth'),
+            'interactive' => $this->config->get('interactive', true)
         ];
 
         ConsoleOutputUtils::info('Writing source Markdown files to: ' . $this->sourceOutputPath);
@@ -147,10 +150,22 @@ class Writer
                 $hasRequestOptions = !empty($route['headers'])
                     || !empty($route['cleanQueryParameters'])
                     || !empty($route['cleanBodyParameters']);
+                // Needed for Try It Out
+                $auth = $settings['auth'];
+                if ($auth['in'] === 'bearer' || $auth['in'] === 'basic') {
+                    $auth['name'] = 'Authorization';
+                    $auth['location'] = 'header';
+                    $auth['prefix'] = ucfirst($auth['in']).' ';
+                } else {
+                    $auth['location'] = $auth['in'];
+                    $auth['prefix'] = '';
+                }
                 $route['output'] = (string)view('scribe::partials.endpoint')
                     ->with('hasRequestOptions', $hasRequestOptions)
                     ->with('route', $route)
+                    ->with('endpointId', $route['methods'][0].str_replace(['/', '?', '{', '}', ':'], '-', $route['uri']))
                     ->with('settings', $settings)
+                    ->with('auth', $auth)
                     ->with('baseUrl', $this->baseUrl)
                     ->render();
 
@@ -243,7 +258,7 @@ class Writer
     protected function performFinalTasksForLaravelType(): void
     {
         if (!is_dir($this->laravelTypeOutputPath)) {
-            mkdir($this->laravelTypeOutputPath);
+            mkdir($this->laravelTypeOutputPath, 0777, true);
         }
         if (!is_dir("public/vendor/scribe")) {
             mkdir("public/vendor/scribe", 0777, true);
@@ -262,7 +277,7 @@ class Writer
         // Rewrite links to go through Laravel
         $contents = preg_replace('#href="css/(.+?)"#', 'href="{{ asset("vendor/scribe/css/$1") }}"', $contents);
         $contents = preg_replace('#src="(js|images)/(.+?)"#', 'src="{{ asset("vendor/scribe/$1/$2") }}"', $contents);
-        $contents = str_replace('href="./collection.json"', 'href="{{ route("scribe.json") }}"', $contents);
+        $contents = str_replace('href="./collection.json"', 'href="{{ route("scribe.postman") }}"', $contents);
         $contents = str_replace('href="./openapi.yaml"', 'href="{{ route("scribe.openapi") }}"', $contents);
 
         file_put_contents("$this->laravelTypeOutputPath/index.blade.php", $contents);
@@ -270,9 +285,11 @@ class Writer
 
     public function writeHtmlDocs(): void
     {
-        ConsoleOutputUtils::info('Generating API HTML code');
+        ConsoleOutputUtils::info('Transforming Markdown docs to HTML...');
 
         $this->pastel->generate($this->sourceOutputPath . '/index.md', $this->staticTypeOutputPath);
+        // Add our custom JS
+        copy(__DIR__.'/../../resources/js/tryitout.js', $this->staticTypeOutputPath . '/js/tryitout-'.Flags::SCRIBE_VERSION.'.js');
 
         if (!$this->isStatic) {
             $this->performFinalTasksForLaravelType();
@@ -296,7 +313,7 @@ class Writer
         $frontmatter = view('scribe::partials.frontmatter')
             ->with('showPostmanCollectionButton', $this->shouldGeneratePostmanCollection)
             ->with('showOpenAPISpecButton', $this->shouldGenerateOpenAPISpec)
-            // This path is wrong for laravel type but will be replaced in post
+            // These paths are wrong for laravel type but will be replaced in the performFinalTasksForLaravelType() method
             ->with('postmanCollectionLink', './collection.json')
             ->with('openAPISpecLink', './openapi.yaml')
             ->with('outputPath', 'docs')
@@ -305,7 +322,10 @@ class Writer
         $introText = $this->config->get('intro_text', '');
         $introMarkdown = view('scribe::index')
             ->with('frontmatter', $frontmatter)
-            ->with('introText', $introText);
+            ->with('description', $this->config->get('description', ''))
+            ->with('introText', $introText)
+            ->with('baseUrl', $this->baseUrl)
+            ->with('isInteractive', $this->config->get('interactive', true));
         $this->writeFile($indexMarkdownFile, $introMarkdown);
     }
 
@@ -322,43 +342,44 @@ class Writer
         }
 
         $isAuthed = $this->config->get('auth.enabled', false);
-        $text = '';
+        $authDescription = '';
         $extraInfo = '';
 
         if ($isAuthed) {
             $strategy = $this->config->get('auth.in');
             $parameterName = $this->config->get('auth.name');
-            $text = Arr::random([
+            $authDescription = Arr::random([
                 "This API is authenticated by sending ",
                 "To authenticate requests, include ",
                 "Authenticate requests to this API's endpoints by sending ",
             ]);
             switch ($strategy) {
                 case 'query':
-                    $text .= "a query parameter **`$parameterName`** in the request.";
+                    $authDescription .= "a query parameter **`$parameterName`** in the request.";
                     break;
                 case 'body':
-                    $text .= "a parameter **`$parameterName`** in the body of the request.";
+                    $authDescription .= "a parameter **`$parameterName`** in the body of the request.";
                     break;
                 case 'query_or_body':
-                    $text .= "a parameter **`$parameterName`** either in the query string or in the request body.";
+                    $authDescription .= "a parameter **`$parameterName`** either in the query string or in the request body.";
                     break;
                 case 'bearer':
-                    $text .= "an **`Authorization`** header with the value **`\"Bearer {your-token}\"`**.";
+                    $authDescription .= sprintf('an **`Authorization`** header with the value **`"Bearer %s"`**.', $this->config->get('auth.placeholder') ?: 'your-token');;
                     break;
                 case 'basic':
-                    $text .= "an **`Authorization`** header in the form **`\"Basic {credentials}\"`**. The value of `{credentials}` should be your username/id and your password, joined with a colon (:), and then base64-encoded.";
+                    $authDescription .= "an **`Authorization`** header in the form **`\"Basic {credentials}\"`**. The value of `{credentials}` should be your username/id and your password, joined with a colon (:), and then base64-encoded.";
                     break;
                 case 'header':
-                    $text .= "a **`$parameterName`** header with the value **`\"{your-token}\"`**.";
+                    $authDescription .= sprintf('a **`%s`** header with the value **`"%s"`**.', $parameterName, $this->config->get('auth.placeholder') ?: 'your-token');
                     break;
             }
+            $authDescription .= '\n\nAll authenticated endpoints are marked with a `requires authentication` badge in the documentation below.';
             $extraInfo = $this->config->get('auth.extra_info', '');
         }
 
         $authMarkdown = view('scribe::authentication', [
             'isAuthed' => $isAuthed,
-            'authDescription' => $text,
+            'authDescription' => $authDescription,
             'extraAuthInfo' => $extraInfo,
         ]);
         $this->writeFile($authMarkdownFile, $authMarkdown);

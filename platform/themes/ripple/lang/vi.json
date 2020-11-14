@@ -1,14 +1,17 @@
 {
     "Home": "Trang chủ",
     "Page could not be found": "Không tìm thấy trang yêu cầu",
-    "Page could not be loaded": "Không thể tải trang",
     "This may have occurred because of several reasons": "Điều này có thể xảy ra vì một vài lý do",
-    "Please try again in a few minutes, or alternatively return to the homepage by <a href=\":link\">clicking here</a>.": "Hãy thử lại sau vài phút, hoặc trở về trang chủ bằng cách nhấn <a href=\":link\">vào đây</a>.",
     "The page you requested does not exist.": "Trang bạn yêu cầu không tồn tại",
     "The link you clicked is no longer.": "Liên kết mà bạn nhấn vào không còn được sử dụng nữa",
     "The page may have moved to a new location.": "Trang này đã được thay đổi sang đường dẫn khác",
     "An error may have occurred.": "Đã có lỗi hệ thống xảy ra",
     "You are not authorized to view the requested resource.": "Bạn không có quyền truy cập tới tài nguyên này",
+    "Page could not be loaded": "Không thể tải trang",
+    "Service Unavailable": "Service Unavailable",
+    "Sorry, we are doing some maintenance. Please check back soon.": "Xin lỗi, chúng tôi đang bảo trì hệ thống, vui lòng quay lại sau!",
+    "Oh no": "Oh no",
+    "Please try again in a few minutes, or alternatively return to the homepage by <a href=\":link\">clicking here</a>.": "Hãy thử lại sau vài phút, hoặc trở về trang chủ bằng cách nhấn <a href=\":link\">vào đây</a>.",
     "What's new ?": "Có gì mới ?",
     "Social links:": "Liên kết xã hội:",
     "Author posts": "Bài viết của tác giả",
@@ -74,13 +77,13 @@
     "Current Password": "Mật khẩu hiện tại",
     "New Password": "Mật khẩu mới",
     "Password Confirmation": "Xác nhận mật khẩu mới",
-
     "Address": "Địa chỉ",
     "Subject": "Tiêu đề",
     "Message": "Nội dung",
     "Please confirm you are not robot": "Vui lòng xác nhận không phải người máy",
     "The field with (<span style=\"color:#FF0000;\">*</span>) is required.": "Các mục (<span style=\"color:#FF0000;\">*</span>) là bắt buộc.",
     "Send": "Gửi",
-    "Send message successfully!": "Send message successfully!",
-    "Can't send message on this time, please try again later!": "Can't send message on this time, please try again later!"
+    "Send message successfully!": "Gửi tin nhắn thành công",
+    "Can't send message on this time, please try again later!": "Không thể gửi liên hệ bây giờ, vui lòng thử lại sau!",
+    "By": "Người đăng"
 }

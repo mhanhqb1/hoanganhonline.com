@@ -3,16 +3,18 @@
 ## Specifying query parameters
 To describe query parameters for your endpoint, use the `@queryParam` annotation on the method handling it.
 
-The `@queryParam` annotation takes the name of the parameter, an optional "required" label, and a description.
+The `@queryParam` annotation takes the name of the parameter, an optional type, an optional "required" label, and a description.
+
+If you don't specify a type, Scribe will assume it's `string`. See [the documentation on body parameters](./documenting-endpoint-body-parameters.html) for a list of valid types.
 
 Here's an example:
 
 ```php
 /**
- * @queryParam sort Field to sort by. Defaults to 'id'.
- * @queryParam fields required Comma-separated fields to include in the response
- * @queryParam filters[published_at] Filter by date published.
- * @queryParam filters[title] Filter by title.
+  * @queryParam sort string Field to sort by. Defaults to 'id'.
+  * @queryParam fields required Comma-separated list of fields to include in the response. Example: title,published_at,is_public
+  * @queryParam filters[published_at] Filter by date published.
+  * @queryParam filters[is_public] integer Filter by whether a post is public or not. Example: 1
  */
 public function listPosts()
 {
@@ -26,6 +28,24 @@ The query parameters will be included in the generated documentation text and ex
 
 ![](../images/endpoint-queryparams-2.png)
 
+
+If you need to handle array/object parameters, you can use the same conventions as [for body parameters](./documenting-endpoint-body-parameters.html#handling-array-and-object-parameters):
+
+```php
+/**
+  * @queryParam sort string Field to sort by. Defaults to 'id'.
+  * @queryParam fields string[] required Comma-separated list of fields to include in the response. Example: title,published_at,is_public
+  * @queryParam filters object Fields to filter by
+  * @queryParam filters.published_at Filter by date published.
+  * @queryParam filters.is_public integer Filter by whether a post is public or not. Example: 1
+ */
+```
+
+![](../images/endpoint-queryparams-4.png)
+
+```eval_rst
+.. Tip:: You should avoid using query parameters that are arrays or objects, because [there isn't a standardised format for handling them](https://stackoverflow.com/a/9547490/7370522).
+```
 
 If you're using a FormRequest in your controller, you can also add the `@queryParam` annotation there instead, and Scribe will fetch it.
 
@@ -63,7 +83,7 @@ For instance:
     */
 ```
 
-![](../images/endpoint-queryparams-3.png)
+![](../images/endpoint-queryparams-4.png)
 
 ## Describing URL parameters
 To describe parameters in the URL, use the `@urlParam` annotation. For instance, if you defined your Laravel route like this:
@@ -72,11 +92,13 @@ To describe parameters in the URL, use the `@urlParam` annotation. For instance,
 Route::get("/post/{id}/{lang?}");
 ```
 
-you can use this annotation to describe the `id` and `lang` parameters as shown below. The annotation takes the name of the parameter, an optional "required" label, and then its description. Like with `@queryParams`, a random value will be generated, but you can specify the value to be used in examples and response calls using the `Example: ` syntax.
+you can use this annotation to describe the `id` and `lang` parameters as shown below. The annotation takes the name of the parameter, an optional type, an optional "required" label, and then its description. Like with `@queryParams`, a random value will be generated, but you can specify the value to be used in examples and response calls using the `Example: ` syntax.
+
+If you don't specify a type, Scribe will assume it's `string`. Valid types are `string`, `integer`, and `number`.
 
 ```php
 /**
- * @urlParam id required The ID of the post.
+ * @urlParam id integer required The ID of the post.
  * @urlParam lang The language. Example: en
  */
 public function getPost()

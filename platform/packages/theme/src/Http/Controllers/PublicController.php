@@ -13,6 +13,7 @@ use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Arr;
 use Response;
+use SeoHelper;
 use SiteMapManager;
 use Theme;
 
@@ -47,14 +48,16 @@ class PublicController extends Controller
     public function getIndex(BaseHttpResponse $response)
     {
         if (defined('PAGE_MODULE_SCREEN_NAME')) {
-            $homepage = theme_option('homepage_id', $this->settingStore->get('show_on_front'));
-            if ($homepage) {
-                $homepage = app(PageInterface::class)->findById($homepage);
+            $homepageId = theme_option('homepage_id', $this->settingStore->get('show_on_front'));
+            if ($homepageId) {
+                $homepage = app(PageInterface::class)->findById($homepageId);
                 if ($homepage) {
                     return $this->getView($response, $homepage->slug);
                 }
             }
         }
+
+        SeoHelper::setTitle(theme_option('site_title'));
 
         Theme::breadcrumb()->add(__('Home'), url('/'));
 

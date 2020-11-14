@@ -21,6 +21,7 @@ use Botble\Blog\Repositories\Caches\TagCacheDecorator;
 use Botble\Blog\Repositories\Eloquent\TagRepository;
 use Botble\Blog\Repositories\Interfaces\TagInterface;
 use Language;
+use Note;
 use SeoHelper;
 use SlugHelper;
 
@@ -64,7 +65,6 @@ class BlogServiceProvider extends ServiceProvider
             ->loadMigrations()
             ->publishAssets();
 
-        $this->app->register(HookServiceProvider::class);
         $this->app->register(EventServiceProvider::class);
 
         Event::listen(RouteMatched::class, function () {
@@ -115,6 +115,15 @@ class BlogServiceProvider extends ServiceProvider
             }
 
             SeoHelper::registerModule($models);
+
+            $configKey = 'packages.revision.general.supported';
+            config()->set($configKey, array_merge(config($configKey, []), [Post::class]));
+
+            if (defined('NOTE_FILTER_MODEL_USING_NOTE')) {
+                Note::registerModule(Post::class);
+            }
+
+            $this->app->register(HookServiceProvider::class);
         });
 
         if (function_exists('shortcode')) {

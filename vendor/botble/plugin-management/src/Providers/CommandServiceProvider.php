@@ -2,6 +2,7 @@
 
 namespace Botble\PluginManagement\Providers;
 
+use Botble\PluginManagement\Commands\PluginActivateAllCommand;
 use Botble\PluginManagement\Commands\PluginActivateCommand;
 use Botble\PluginManagement\Commands\PluginAssetsPublishCommand;
 use Botble\PluginManagement\Commands\PluginDeactivateCommand;
@@ -22,6 +23,7 @@ class CommandServiceProvider extends ServiceProvider
             PluginActivateCommand::class,
             PluginDeactivateCommand::class,
             PluginRemoveCommand::class,
+            PluginActivateAllCommand::class,
         ]);
     }
 }

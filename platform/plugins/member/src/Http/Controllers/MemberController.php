@@ -2,6 +2,7 @@
 
 namespace Botble\Member\Http\Controllers;
 
+use Botble\Base\Events\BeforeEditContentEvent;
 use Botble\Base\Forms\FormBuilder;
 use Botble\Base\Http\Controllers\BaseController;
 use Botble\Base\Http\Responses\BaseHttpResponse;
@@ -85,11 +86,15 @@ class MemberController extends BaseController
     /**
      * @param $id
      * @param FormBuilder $formBuilder
+     * @param Request $request
      * @return \Illuminate\Contracts\View\Factory|\Illuminate\View\View|string
      */
-    public function edit($id, FormBuilder $formBuilder)
+    public function edit($id, FormBuilder $formBuilder, Request $request)
     {
         $member = $this->memberRepository->findOrFail($id);
+
+        event(new BeforeEditContentEvent($request, $member));
+
         page_title()->setTitle(trans('plugins/member::member.edit'));
 
         $member->password = null;

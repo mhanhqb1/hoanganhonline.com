@@ -8,12 +8,11 @@ use Botble\Blog\Http\Resources\PostResource;
 use Botble\Blog\Http\Resources\ListPostResource;
 use Botble\Blog\Repositories\Interfaces\PostInterface;
 use Botble\Blog\Supports\FilterPost;
-use Botble\Slug\Repositories\Interfaces\SlugInterface;
-use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Botble\Blog\Models\Post;
+use SlugHelper;
 
 class PostController extends Controller
 {
@@ -24,19 +23,13 @@ class PostController extends Controller
     protected $postRepository;
 
     /**
-     * @var SlugInterface
-     */
-    protected $slugRepository;
-
-    /**
      * AuthenticationController constructor.
      *
      * @param PostInterface $postRepository
      */
-    public function __construct(PostInterface $postRepository, SlugInterface $slugRepository)
+    public function __construct(PostInterface $postRepository)
     {
         $this->postRepository = $postRepository;
-        $this->slugRepository = $slugRepository;
     }
 
     /**
@@ -149,7 +142,8 @@ class PostController extends Controller
      */
     public function findBySlug(string $slug, BaseHttpResponse $response)
     {
-        $slug = $this->slugRepository->getFirstBy(['key' => $slug, 'reference_type' => Post::class]);
+        $slug = SlugHelper::getSlug($slug, SlugHelper::getPrefix(Post::class), Post::class);
+
         if (!$slug) {
             return $response->setError()->setCode(404)->setMessage('Not found');
         }

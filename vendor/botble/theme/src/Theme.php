@@ -6,7 +6,6 @@ use Botble\Theme\Contracts\Theme as ThemeContract;
 use Botble\Theme\Exceptions\UnknownLayoutFileException;
 use Botble\Theme\Exceptions\UnknownPartialFileException;
 use Botble\Theme\Exceptions\UnknownThemeException;
-use Botble\Widget\Repositories\Interfaces\WidgetInterface;
 use Closure;
 use Exception;
 use File;
@@ -17,10 +16,8 @@ use Illuminate\Filesystem\Filesystem;
 use Illuminate\Http\Response;
 use Illuminate\Support\Arr;
 use Illuminate\View\Factory;
-use Language;
 use SeoHelper;
 use Symfony\Component\HttpFoundation\Cookie;
-use WidgetGroup;
 
 class Theme implements ThemeContract
 {
@@ -1035,33 +1032,5 @@ class Theme implements ThemeContract
     public function routes()
     {
         return File::requireOnce(package_path('theme/routes/public.php'));
-    }
-
-    /**
-     * @param string $sidebarId
-     * @return string
-     * @throws FileNotFoundException
-     */
-    public function renderWidgetGroup($sidebarId)
-    {
-        if (!$this->widgets) {
-            $languageCode = null;
-            if (is_plugin_active('language')) {
-                $currentLocale = is_in_admin() ? Language::getCurrentAdminLocaleCode() : Language::getCurrentLocaleCode();
-                $languageCode = $currentLocale && $currentLocale != Language::getDefaultLocaleCode() ? '-' . $currentLocale : null;
-            }
-
-            $widgets = app(WidgetInterface::class)->getByTheme(Theme::getThemeName() . $languageCode);
-
-            foreach ($widgets as $widget) {
-                WidgetGroup::group($widget->sidebar_id)
-                    ->position($widget->position)
-                    ->addWidget($widget->widget_id, $widget->data);
-            }
-
-            $this->widgets = $widgets;
-        }
-
-        return WidgetGroup::group($sidebarId)->display();
     }
 }

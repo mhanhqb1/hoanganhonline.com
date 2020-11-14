@@ -11,6 +11,7 @@ use Botble\Base\Forms\Fields\EditorField;
 use Botble\Base\Forms\Fields\HtmlField;
 use Botble\Base\Forms\Fields\MediaFileField;
 use Botble\Base\Forms\Fields\MediaImageField;
+use Botble\Base\Forms\Fields\MediaImagesField;
 use Botble\Base\Forms\Fields\OnOffField;
 use Botble\Base\Forms\Fields\TimeField;
 use Exception;
@@ -269,6 +270,7 @@ abstract class FormAbstract extends Form
             'onOff'        => OnOffField::class,
             'customRadio'  => CustomRadioField::class,
             'mediaImage'   => MediaImageField::class,
+            'mediaImages'  => MediaImagesField::class,
             'mediaFile'    => MediaFileField::class,
             'customColor'  => ColorField::class,
             'time'         => TimeField::class,

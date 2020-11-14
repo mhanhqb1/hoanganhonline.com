@@ -3,13 +3,13 @@
 namespace Knuckles\Scribe\Extracting;
 
 use Faker\Factory;
+use Illuminate\Http\Testing\File;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Knuckles\Scribe\Extracting\Strategies\Strategy;
 use Knuckles\Scribe\Tools\DocumentationConfig;
-use Knuckles\Scribe\Tools\ConsoleOutputUtils as c;
 use Knuckles\Scribe\Tools\Utils as u;
 use ReflectionClass;
 use ReflectionFunctionAbstract;
@@ -72,9 +72,9 @@ class Generator
      * @param \Illuminate\Routing\Route $route
      * @param array $routeRules Rules to apply when generating documentation for this route
      *
+     * @return array
      * @throws \ReflectionException
      *
-     * @return array
      */
     public function processRoute(Route $route, array $routeRules = [])
     {
@@ -95,7 +95,7 @@ class Generator
         $urlParameters = $this->fetchUrlParameters($controller, $method, $route, $routeRules, $parsedRoute);
         $parsedRoute['urlParameters'] = $urlParameters;
         $parsedRoute['cleanUrlParameters'] = self::cleanParams($urlParameters);
-        $parsedRoute['boundUri'] = u::getFullUrl($route, $parsedRoute['cleanUrlParameters']);
+        $parsedRoute['boundUri'] = u::getUrlWithBoundParameters($route, $parsedRoute['cleanUrlParameters']);
 
         $parsedRoute = $this->addAuthField($parsedRoute);
 
@@ -109,6 +109,7 @@ class Generator
         $bodyParameters = $this->fetchBodyParameters($controller, $method, $route, $routeRules, $parsedRoute);
         $parsedRoute['bodyParameters'] = $bodyParameters;
         $parsedRoute['cleanBodyParameters'] = self::cleanParams($bodyParameters);
+
         if (count($parsedRoute['cleanBodyParameters']) && !isset($parsedRoute['headers']['Content-Type'])) {
             // Set content type if the user forgot to set it
             $parsedRoute['headers']['Content-Type'] = 'application/json';
@@ -124,10 +125,13 @@ class Generator
 
         $responses = $this->fetchResponses($controller, $method, $route, $routeRules, $parsedRoute);
         $parsedRoute['responses'] = $responses;
-        $parsedRoute['showresponse'] = ! empty($responses);
+        $parsedRoute['showresponse'] = !empty($responses);
 
         $responseFields = $this->fetchResponseFields($controller, $method, $route, $routeRules, $parsedRoute);
         $parsedRoute['responseFields'] = $responseFields;
+
+
+        $parsedRoute['nestedBodyParameters'] = self::nestArrayAndObjectFields($parsedRoute['bodyParameters']);
 
         self::$routeBeingProcessed = null;
 
@@ -193,6 +197,8 @@ class Generator
                 \Knuckles\Scribe\Extracting\Strategies\Metadata\GetFromDocBlocks::class,
             ],
             'urlParameters' => [
+                \Knuckles\Scribe\Extracting\Strategies\UrlParameters\GetFromLaravelAPI::class,
+                \Knuckles\Scribe\Extracting\Strategies\UrlParameters\GetFromLumenAPI::class,
                 \Knuckles\Scribe\Extracting\Strategies\UrlParameters\GetFromUrlParamTag::class,
             ],
             'queryParameters' => [
@@ -227,7 +233,7 @@ class Generator
             $strategyArgs = $arguments;
             $strategyArgs[] = $extractedData;
             $results = $strategy(...$strategyArgs);
-            if (! is_null($results)) {
+            if (!is_null($results)) {
                 foreach ($results as $index => $item) {
                     if ($stage == 'responses') {
                         // Responses from different strategies are all added, not overwritten
@@ -238,7 +244,7 @@ class Generator
                     // so it does not renumber numeric keys and also allows values to be overwritten
 
                     // Don't allow overwriting if an empty value is trying to replace a set one
-                    if (! in_array($extractedData[$stage], [null, ''], true) && in_array($item, [null, ''], true)) {
+                    if (!in_array($extractedData[$stage], [null, ''], true) && in_array($item, [null, ''], true)) {
                         continue;
                     } else {
                         $extractedData[$stage][$index] = $item;
@@ -261,8 +267,6 @@ class Generator
      * And transforms them into key-example pairs : ['age' => 12]
      * It also filters out parameters which have null values and have 'required' as false.
      * It converts all file params that have string examples to actual files (instances of UploadedFile).
-     * Finally, it adds a '.0' key for each array parameter (eg users.* ->users.0),
-     * so that the array ends up containing a 1-item array.
      *
      * @param array $parameters
      *
@@ -270,7 +274,7 @@ class Generator
      */
     public static function cleanParams(array $parameters): array
     {
-        $cleanParams = [];
+        $cleanParameters = [];
 
         foreach ($parameters as $paramName => $details) {
             // Remove params which have no examples and are optional.
@@ -282,35 +286,47 @@ class Generator
                 $details['value'] = self::convertStringValueToUploadedFileInstance($details['value']);
             }
 
-            self::generateConcreteKeysForArrayParameters(
-                $paramName,
-                $details['value'],
-                $cleanParams
-            );
+            if (Str::contains($paramName, '.')) { // Object field (or array of objects)
+                self::setObject($cleanParameters, $paramName, $details['value'], $parameters, ($details['required'] ?? false));
+            } else {
+                $cleanParameters[$paramName] = $details['value'];
+            }
         }
 
-        return $cleanParams;
+        return $cleanParameters;
     }
 
-    /**
-     * For each array notation parameter (eg user.*, item.*.name, object.*.*, user[])
-     * add a key that represents a "concrete" number (eg user.0, item.0.name, object.0.0, user.0 with the same value.
-     * That way, we always have an array of length 1 for each array key
-     *
-     * @param string $paramName
-     * @param mixed $paramExample
-     * @param array $cleanParams The array that holds the result
-     *
-     * @return void
-     */
-    protected static function generateConcreteKeysForArrayParameters($paramName, $paramExample, array &$cleanParams = [])
+    public static function setObject(array &$results, string $path, $value, array $source, bool $isRequired)
     {
-        if (Str::contains($paramName, '[')) {
-            // Replace usages of [] with dot notation
-            $paramName = str_replace(['][', '[', ']', '..'], ['.', '.', '', '.*.'], $paramName);
+        $parts = array_reverse(explode('.', $path));
+
+        array_shift($parts); // Get rid of the field name
+
+        $baseName = join('.', array_reverse($parts));
+        // The type should be indicated in the source object by now; we don't need it in the name
+        $normalisedBaseName = Str::replaceLast('[]', '', $baseName);
+
+        $parentData = Arr::get($source, $normalisedBaseName);
+        if ($parentData) {
+            // Path we use for data_set
+            $dotPath = str_replace('[]', '.0', $path);
+            if ($parentData['type'] === 'object') {
+                if (!Arr::has($results, $dotPath)) {
+                    Arr::set($results, $dotPath, $value);
+                }
+            } else if ($parentData['type'] === 'object[]') {
+                if (!Arr::has($results, $dotPath)) {
+                    Arr::set($results, $dotPath, $value);
+                }
+                // If there's a second item in the array, set for that too.
+                if ($value !== null && Arr::has($results, Str::replaceLast('[]', '.1', $baseName))) {
+                    // If value is optional, flip a coin on whether to set or not
+                    if ($isRequired || array_rand([true, false], 1)) {
+                        Arr::set($results, Str::replaceLast('.0', '.1', $dotPath), $value);
+                    }
+                }
+            }
         }
-        // Then generate a sample item for the dot notation
-        Arr::set($cleanParams, str_replace(['.*', '*.'], ['.0','0.'], $paramName), $paramExample);
     }
 
     public function addAuthField(array $parsedRoute): array
@@ -338,8 +354,9 @@ class Generator
                 $parsedRoute['auth'] = "cleanQueryParameters.$parameterName." . ($valueToUse ?: $token);
                 $parsedRoute['queryParameters'][$parameterName] = [
                     'name' => $parameterName,
-                    'value' => $valueToDisplay ?:$token,
-                    'description' => '',
+                    'type' => 'string',
+                    'value' => $valueToDisplay ?: $token,
+                    'description' => 'Authentication key.',
                     'required' => true,
                 ];
                 break;
@@ -349,20 +366,20 @@ class Generator
                     'name' => $parameterName,
                     'type' => 'string',
                     'value' => $valueToDisplay ?: $token,
-                    'description' => '',
+                    'description' => 'Authentication key.',
                     'required' => true,
                 ];
                 break;
             case 'bearer':
-                $parsedRoute['auth'] = "headers.Authorization.Bearer ".($valueToUse ?: $token);
-                $parsedRoute['headers']['Authorization'] = "Bearer ".($valueToDisplay ?: $token);
+                $parsedRoute['auth'] = "headers.Authorization.Bearer " . ($valueToUse ?: $token);
+                $parsedRoute['headers']['Authorization'] = "Bearer " . ($valueToDisplay ?: $token);
                 break;
             case 'basic':
-                $parsedRoute['auth'] = "headers.Authorization.Basic ".($valueToUse ?: base64_encode($token));
-                $parsedRoute['headers']['Authorization'] = "Basic ".($valueToDisplay ?: base64_encode($token));
+                $parsedRoute['auth'] = "headers.Authorization.Basic " . ($valueToUse ?: base64_encode($token));
+                $parsedRoute['headers']['Authorization'] = "Basic " . ($valueToDisplay ?: base64_encode($token));
                 break;
             case 'header':
-                $parsedRoute['auth'] = "headers.$parameterName.".($valueToUse ?: $token);
+                $parsedRoute['auth'] = "headers.$parameterName." . ($valueToUse ?: $token);
                 $parsedRoute['headers'][$parameterName] = $valueToDisplay ?: $token;
                 break;
         }
@@ -373,8 +390,38 @@ class Generator
     protected static function convertStringValueToUploadedFileInstance(string $filePath): UploadedFile
     {
         $fileName = basename($filePath);
-        return new UploadedFile(
-            $filePath, $fileName, mime_content_type($filePath), 0, false
-        );
+        return new File($fileName, fopen($filePath, 'r'));
+    }
+
+    /**
+     * Transform body parameters such that object fields have a `fields` property containing a list of all subfields
+     * Subfields will be removed from the main parameter map
+     * For instance, if $parameters is ['dad' => [], 'dad.cars' => [], 'dad.age' => []],
+     * normalise this into ['dad' => [..., '__fields' => ['dad.cars' => [], 'dad.age' => []]]
+     */
+    public static function nestArrayAndObjectFields(array $parameters)
+    {
+        $finalParameters = [];
+        foreach ($parameters as $name => $parameter) {
+            if (Str::contains($name, '.')) { // Likely an object field
+                // Get the various pieces of the name
+                $parts = array_reverse(explode('.', $name));
+
+                $fieldName = array_shift($parts);
+
+                $baseName = join('.__fields.', array_reverse($parts));
+                // The type should be indicated in the source object by now; we don't need it in the name
+                $normalisedBaseName = str_replace('[]', '.__fields', $baseName);
+
+                $dotPath = preg_replace('/\.__fields$/', '', $normalisedBaseName) . '.__fields.' . $fieldName;
+                Arr::set($finalParameters, $dotPath, $parameter);
+            } else { // A regular field
+                $parameter['__fields'] = [];
+                $finalParameters[$name] = $parameter;
+            }
+
+        }
+
+        return $finalParameters;
     }
 }

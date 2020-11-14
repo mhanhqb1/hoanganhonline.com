@@ -21,6 +21,7 @@ mix
                     source + '/views/*.blade.php',
                     source + '/views/**/*.blade.php',
                     source + '/widgets/**/templates/frontend.blade.php',
+                    'platform/plugins/contact/resources/views/forms/contact.blade.php'
                 ],
                 defaultExtractor: content => content.match(/[\w-/.:]+(?<!:)/g) || [],
                 safelist: [

@@ -305,6 +305,14 @@ class TranslationController extends BaseController
             if (File::exists($jsonFile)) {
                 $translations = get_file_data($jsonFile, true);
             }
+
+            if ($group['locale'] != 'en') {
+                $defaultEnglishFile = theme_path(Theme::getThemeName() . '/lang/en.json');
+
+                if ($defaultEnglishFile) {
+                    $translations = array_merge(get_file_data($defaultEnglishFile, true), $translations);
+                }
+            }
         }
 
         return view('plugins/translation::theme-translations', compact('translations', 'groups', 'group', 'defaultLanguage'));

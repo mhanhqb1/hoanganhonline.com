@@ -84,6 +84,9 @@ return [
         'mail_gun_secret_placeholder'   => 'Secret',
         'mail_gun_endpoint'             => 'Endpoint',
         'mail_gun_endpoint_placeholder' => 'Endpoint',
+        'log_channel'                   => 'Log channel',
+        'sendmail_path'                 => 'Sendmail Path',
+        'encryption_placeholder'        => 'Encryption: ssl or tls',
 
         'ses_key'                => 'Key',
         'ses_key_placeholder'    => 'Key',
@@ -151,4 +154,7 @@ return [
     'test_email_input_placeholder' => 'Enter the email which you want to send test email.',
     'test_email_modal_title'       => 'Send a test email',
     'test_send_mail'               => 'Send test mail',
+    'test_email_send_success'      => 'Send email successfully!',
+    'locale_direction_ltr'         => 'Left to Right',
+    'locale_direction_rtl'         => 'Right to Left',
 ];

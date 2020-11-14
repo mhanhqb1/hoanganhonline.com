@@ -5,7 +5,6 @@ namespace Botble\Widget\Http\Controllers;
 use Assets;
 use Botble\Base\Http\Controllers\BaseController;
 use Botble\Base\Http\Responses\BaseHttpResponse;
-use Botble\Setting\Supports\SettingStore;
 use Botble\Widget\Factories\AbstractWidgetFactory;
 use Botble\Widget\Repositories\Interfaces\WidgetInterface;
 use Botble\Widget\WidgetId;
@@ -29,7 +28,7 @@ class WidgetController extends BaseController
     protected $widgetRepository;
 
     /**
-     * @var null
+     * @var string|null
      */
     protected $theme = null;
 
@@ -52,7 +51,7 @@ class WidgetController extends BaseController
      */
     public function index()
     {
-        page_title()->setTitle(trans('core/base::layouts.widgets'));
+        page_title()->setTitle(trans('packages/widget::widget.name'));
 
         Assets::addScripts(['sortable'])
             ->addScriptsDirectly('vendor/core/packages/widget/js/widget.js');
@@ -94,13 +93,14 @@ class WidgetController extends BaseController
                 $this->widgetRepository->createOrUpdate($args);
             }
 
-            $widget_areas = $this->widgetRepository->allBy([
+            $widgetAreas = $this->widgetRepository->allBy([
                 'sidebar_id' => $sidebarId,
                 'theme'      => $this->theme,
             ]);
+
             return $response
-                ->setData(view('packages/widget::item', compact('widget_areas'))->render())
-                ->setMessage(trans('packages/widget::global.save_success'));
+                ->setData(view('packages/widget::item', compact('widgetAreas'))->render())
+                ->setMessage(trans('packages/widget::widget.save_success'));
         } catch (Exception $exception) {
             return $response
                 ->setError()
@@ -122,7 +122,7 @@ class WidgetController extends BaseController
                 'position'   => $request->get('position'),
                 'widget_id'  => $request->get('widget_id'),
             ]);
-            return $response->setMessage(trans('packages/widget::global.delete_success'));
+            return $response->setMessage(trans('packages/widget::widget.delete_success'));
         } catch (Exception $exception) {
             return $response
                 ->setError()

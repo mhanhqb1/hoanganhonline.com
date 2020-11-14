@@ -6,14 +6,12 @@ use Botble\ACL\Models\User;
 use Botble\Base\Enums\BaseStatusEnum;
 use Botble\Base\Traits\EnumCastable;
 use Botble\Revision\RevisionableTrait;
-use Botble\Slug\Traits\SlugTrait;
 use Botble\Base\Models\BaseModel;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Page extends BaseModel
 {
     use RevisionableTrait;
-    use SlugTrait;
     use EnumCastable;
 
     /**

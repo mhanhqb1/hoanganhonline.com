@@ -34,15 +34,21 @@
                 <div class="col-md-4 col-sm-4 col-xs-12">
                     <div class="page-footer__social">
                         <ul class="social social--simple">
-                            <li>
-                                <a href="{{ theme_option('facebook') }}" title="Facebook" class="hi-icon fa fa-facebook"></a>
-                            </li>
-                            <li>
-                                <a href="{{ theme_option('twitter') }}" title="Twitter" class="hi-icon fa fa-twitter"></a>
-                            </li>
-                            <li>
-                                <a href="{{ theme_option('youtube') }}" title="Youtube" class="hi-icon fa fa-youtube"></a>
-                            </li>
+                            @if (theme_option('facebook'))
+                                <li>
+                                    <a href="{{ theme_option('facebook') }}" title="Facebook"><i class="hi-icon fa fa-facebook"></i></a>
+                                </li>
+                            @endif
+                            @if (theme_option('twitter'))
+                                <li>
+                                    <a href="{{ theme_option('twitter') }}" title="Twitter"><i class="hi-icon fa fa-twitter"></i></a>
+                                </li>
+                            @endif
+                            @if (theme_option('youtube'))
+                                <li>
+                                    <a href="{{ theme_option('youtube') }}" title="Youtube"><i class="hi-icon fa fa-youtube"></i></a>
+                                </li>
+                            @endif
                         </ul>
                     </div>
                 </div>

@@ -761,6 +761,10 @@ p:empty {
     margin-right: 8px
 }
 
+.post__inside--feature .post__meta .post-category i {
+    margin-right: 0
+}
+
 .post__inside--feature .post__meta span a {
     letter-spacing: 0.05em;
     font-weight: 400;
@@ -1627,7 +1631,8 @@ p:empty {
 .page-intro .breadcrumb {
     position: relative;
     z-index: 10;
-    background-color: transparent
+    background-color: transparent;
+    margin-bottom: 0;
 }
 
 .page-intro .breadcrumb li {

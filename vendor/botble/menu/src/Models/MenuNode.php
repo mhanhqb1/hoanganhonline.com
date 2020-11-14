@@ -63,6 +63,10 @@ class MenuNode extends BaseModel
      */
     public function getUrlAttribute($value)
     {
+        if ($value) {
+            return $value;
+        }
+
         if (!$this->reference_type) {
             return $value ? (string)$value : '/';
         }

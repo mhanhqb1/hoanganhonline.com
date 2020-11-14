@@ -2,6 +2,7 @@
 
 namespace Botble\Language\Providers;
 
+use Artisan;
 use Assets;
 use Botble\Base\Supports\Helper;
 use Botble\Base\Traits\LoadAndPublishDataTrait;
@@ -78,10 +79,15 @@ class LanguageServiceProvider extends ServiceProvider
             ->loadMigrations()
             ->publishAssets();
 
+        $this->app->register(EventServiceProvider::class);
+
         if ($this->app->runningInConsole()) {
             $this->app->register(CommandServiceProvider::class);
+
+            if (!is_in_admin()) {
+                add_filter(BASE_FILTER_GROUP_PUBLIC_ROUTE, [$this, 'addLanguageMiddlewareToPublicRoute'], 958, 1);
+            }
         } else {
-            $this->app->register(EventServiceProvider::class);
 
             Event::listen(RouteMatched::class, function () {
                 dashboard_menu()
@@ -116,17 +122,20 @@ class LanguageServiceProvider extends ServiceProvider
                 add_action(BASE_ACTION_TOP_FORM_CONTENT_NOTIFICATION, [$this, 'addCurrentLanguageEditingAlert'], 55, 3);
                 add_action(BASE_ACTION_BEFORE_EDIT_CONTENT, [$this, 'getCurrentAdminLanguage'], 55, 2);
                 if (defined('THEME_OPTIONS_MODULE_SCREEN_NAME')) {
-                    $this->app->booted(function () {
-                        Theme::asset()
-                            ->usePath(false)
-                            ->add('language-css', asset('vendor/core/plugins/language/css/language-public.css'), [], [], '1.0.0');
+                    if (!$this->app->isDownForMaintenance()) {
+                        $this->app->booted(function () {
+                            Theme::asset()
+                                ->usePath(false)
+                                ->add('language-css', asset('vendor/core/plugins/language/css/language-public.css'), [],
+                                    [], '1.0.0');
 
-                        Theme::asset()
-                            ->container('footer')
-                            ->usePath(false)
-                            ->add('language-public-js', asset('vendor/core/plugins/language/js/language-public.js'),
-                                ['jquery'], [], '1.0.0');
-                    });
+                            Theme::asset()
+                                ->container('footer')
+                                ->usePath(false)
+                                ->add('language-public-js', asset('vendor/core/plugins/language/js/language-public.js'),
+                                    ['jquery'], [], '1.0.0');
+                        });
+                    }
                 }
 
                 add_filter(BASE_FILTER_GET_LIST_DATA, [$this, 'addLanguageColumn'], 50, 2);
@@ -136,6 +145,7 @@ class LanguageServiceProvider extends ServiceProvider
                 if (setting('language_show_default_item_if_current_version_not_existed', true) && !is_in_admin()) {
                     add_filter(BASE_FILTER_BEFORE_GET_SINGLE, [$this, 'getRelatedDataForOtherLanguage'], 50, 4);
                 }
+
                 if (!is_in_admin()) {
                     add_filter(BASE_FILTER_GROUP_PUBLIC_ROUTE, [$this, 'addLanguageMiddlewareToPublicRoute'], 958, 1);
                 }
@@ -156,6 +166,14 @@ class LanguageServiceProvider extends ServiceProvider
                 if (defined('THEME_FRONT_HEADER')) {
                     add_filter(THEME_FRONT_HEADER, [$this, 'addLanguageRefLangTags'], 55, 1);
                 }
+
+                add_filter(BASE_FILTER_SITE_LANGUAGE_DIRECTION, function ($direction) {
+                    if (Language::getCurrentLocaleRTL()) {
+                        return 'rtl';
+                    }
+
+                    return $direction;
+                }, 1, 1);
             }
         }
     }
@@ -475,6 +493,7 @@ class LanguageServiceProvider extends ServiceProvider
                                 }
                             }
                         }
+
                         if (!$added) {
                             $data .= view('plugins/language::partials.status.plus',
                                 compact('route', 'item', 'language'))->render();
@@ -596,6 +615,7 @@ class LanguageServiceProvider extends ServiceProvider
                 }
             }
         }
+
         return $query;
     }
 
